@@ -17,5 +17,7 @@ namespace PHML::Data {
         double& operator()(size_t i, size_t j);
         const double& operator()(size_t i, size_t j) const;
         Matrix operator*(const Matrix& other) const;
+        Matrix operator+(const Matrix& other) const;
+        Matrix operator-(const Matrix& other) const;
     };
 }

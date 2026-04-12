@@ -38,4 +38,32 @@ namespace PHML::Data {
         }
         return result;
     }
+
+    Matrix Matrix::operator+(const Matrix& other) const {
+        if (rows != other.rows || cols != other.cols) {
+            throw std::invalid_argument("Incompatible matrix dimensions for addition");
+        }
+
+        Matrix result(rows, cols);
+        for (size_t i = 0; i < rows; ++i) {
+            for (size_t j = 0; j < cols; ++j) {
+                result(i, j) = (*this)(i, j) + other(i, j);
+            }
+        }
+        return result;
+    }
+
+    Matrix Matrix::operator-(const Matrix& other) const {
+        if (rows != other.rows || cols != other.cols) {
+            throw std::invalid_argument("Incompatible matrix dimensions for subtraction");
+        }
+
+        Matrix result(rows, cols);
+        for (size_t i = 0; i < rows; ++i) {
+            for (size_t j = 0; j < cols; ++j) {
+                result(i, j) = (*this)(i, j) - other(i, j);
+            }
+        }
+        return result;
+    }
 }
