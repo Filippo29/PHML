@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <iostream>
 
 namespace PHML::Data {
     size_t Matrix::index(size_t i, size_t j) const {
@@ -12,6 +13,15 @@ namespace PHML::Data {
             : rows(r), cols(c), data(r * c, 0.0) {}
     Matrix::Matrix(size_t r, size_t c, double defaultVal)
             : rows(r), cols(c), data(r * c, defaultVal) {}
+
+    void Matrix::print() const {
+        for (size_t i = 0; i < rows; ++i) {
+            for (size_t j = 0; j < cols; ++j) {
+                std::cout << (*this)(i, j) << ' ';
+            }
+            std::cout << '\n';
+        }
+    }
 
     double& Matrix::operator()(size_t i, size_t j) {
         return data[index(i, j)];
@@ -62,6 +72,26 @@ namespace PHML::Data {
         for (size_t i = 0; i < rows; ++i) {
             for (size_t j = 0; j < cols; ++j) {
                 result(i, j) = (*this)(i, j) - other(i, j);
+            }
+        }
+        return result;
+    }
+
+    Matrix Matrix::transpose() const {
+        Matrix result(cols, rows);
+        for (size_t i = 0; i < rows; ++i) {
+            for (size_t j = 0; j < cols; ++j) {
+                result(j, i) = (*this)(i, j);
+            }
+        }
+        return result;
+    }
+
+    Matrix Matrix::random(size_t r, size_t c) {
+        Matrix result(r, c);
+        for (size_t i = 0; i < r; ++i) {
+            for (size_t j = 0; j < c; ++j) {
+                result(i, j) = static_cast<double>((double)rand() / RAND_MAX); // TODO: Replace with custom random generator
             }
         }
         return result;

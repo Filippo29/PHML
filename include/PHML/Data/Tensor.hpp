@@ -13,11 +13,17 @@ namespace PHML::Data {
     public:
         Matrix(size_t r, size_t c); // Constructor with default value 0.0
         Matrix(size_t r, size_t c, double defaultVal);
+        void print() const;
 
         double& operator()(size_t i, size_t j);
         const double& operator()(size_t i, size_t j) const;
         Matrix operator*(const Matrix& other) const;
         Matrix operator+(const Matrix& other) const;
         Matrix operator-(const Matrix& other) const;
+
+        Matrix transpose() const;
+        Matrix inverse() const;
+
+        static Matrix random(size_t r, size_t c);
     };
 }
