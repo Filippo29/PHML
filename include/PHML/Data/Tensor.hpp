@@ -21,6 +21,7 @@ namespace PHML::Data {
         Matrix operator+(const Matrix& other) const;
         Matrix operator-(const Matrix& other) const;
 
+        double determinant() const;
         Matrix transpose() const;
         Matrix inverse() const;
 

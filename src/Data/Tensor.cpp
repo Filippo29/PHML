@@ -77,6 +77,35 @@ namespace PHML::Data {
         return result;
     }
 
+    double Matrix::determinant() const {
+        if (rows != cols) {
+            throw std::invalid_argument("Determinant is only defined for square matrices");
+        }
+
+        if (rows == 1) {
+            return (*this)(0, 0);
+        } else if (rows == 2) {
+            return (*this)(0, 0) * (*this)(1, 1) - (*this)(0, 1) * (*this)(1, 0);
+        } else {
+            double det = 0.0;
+            for (size_t j = 0; j < cols; ++j) {
+                Matrix submatrix(rows - 1, cols - 1);
+                for (size_t i = 1; i < rows; ++i) {
+                    for (size_t k = 0; k < cols; ++k) {
+                        if (k < j) {
+                            submatrix(i - 1, k) = (*this)(i, k);
+                        } else if (k > j) {
+                            submatrix(i - 1, k - 1) = (*this)(i, k);
+                        }
+                    }
+                }
+                double sign = (j % 2 == 0) ? 1.0 : -1.0;
+                det += sign * (*this)(0, j) * submatrix.determinant();
+            }
+            return det;
+        }
+    }
+
     Matrix Matrix::transpose() const {
         Matrix result(cols, rows);
         for (size_t i = 0; i < rows; ++i) {
