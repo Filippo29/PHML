@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace PHML::Data {  // ml framework
 
@@ -273,6 +274,12 @@ protected:
     // bool       requires_grad_ = false;
     // GradFn     grad_fn_       = nullptr;
     // std::string name_         = "";
+
+    static std::size_t compute_numel(const std::vector<std::size_t>& shape) {
+        std::size_t n = 1;
+        for (auto d : shape) n *= d;
+        return n;
+    }
 };
 
 } // namespace mlf

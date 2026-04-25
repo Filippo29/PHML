@@ -2,6 +2,7 @@
 #include <chrono>
 
 #include "PHML/PHML.hpp"
+#include "PHML/Data/Matrix.hpp"
 #include "PHML/Data/Tensor.hpp"
 
 int main() {
@@ -14,5 +15,12 @@ int main() {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     std::cout << "Computation time: " << duration.count() << " microseconds" << '\n';
+
+    PHML::Data::Tensor<double> tensor = PHML::Data::Tensor<double>::random({2, 2, 3});
+    std::cout << "Tensor:\n" << tensor << '\n';
+    std::cout << "Tensor transpose:\n" << tensor.reshape({1, 3, 4}) << '\n';
+    std::cout << "Tensor transpose:\n" << tensor.transpose(0, 2) << '\n';
+    
+
     return 0;
 }
