@@ -5,7 +5,8 @@ function(phml_add_test test_name test_source)
 endfunction()
 
 set(PHML_TEST_SOURCES
-    unit/Data/test_tensor.cpp
+    unit/Data/test_Matrix.cpp
+    unit/Data/test_Tensor.cpp
 )
 
 foreach(test_source IN LISTS PHML_TEST_SOURCES)
