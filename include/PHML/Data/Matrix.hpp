@@ -84,22 +84,41 @@ namespace PHML::Data {
 
         // operators
 
+        enum class MPSOp { Add, Sub, Mul };
+
+        std::string OpStr(MPSOp op) const {
+            switch (op) {
+                case MPSOp::Add: return "Add";
+                case MPSOp::Sub: return "Sub";
+                case MPSOp::Mul: return "Mul";
+                default:         return "UnknownOp";
+            }
+        }
+
+        template <MPSOp Op>
+        bool perform_MPSOp(const Matrix<T>& b, Matrix<T>& out) const {
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous() && b.is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    const float* pa = this->template data_ptr<float>();
+                    const float* pb = b.template data_ptr<float>();
+                    float*       po = out.template data_ptr<float>();
+                    if constexpr (Op == MPSOp::Add) mps::add_f32(pa, pb, po, numel());
+                    if constexpr (Op == MPSOp::Sub) mps::sub_f32(pa, pb, po, numel());
+                    if constexpr (Op == MPSOp::Mul) mps::matmul_f32(pa, pb, po, rows_, cols_, b.cols_);
+                    return true;
+                }
+                mps::warn_fallback_once("Matrix::" + OpStr(Op), dtype_str(Base::dtype()));
+            }
+#endif
+            return false;
+        }
+
         Matrix<T> operator+(const Matrix<T>& other) const {
             shape_check(other, "operator+");
             Matrix<T> result(rows_, cols_, Base::device_);
-#ifdef PHML_WITH_MPS
-            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
-                if constexpr (std::is_same_v<T, float>) {
-                    mps::add_f32(this->template data_ptr<T>(),
-                                 other.template data_ptr<T>(),
-                                 result.template data_ptr<T>(),
-                                 numel());
-                    return result;
-                } else {
-                    mps::warn_fallback_once("matrix::operator+", dtype_str(Base::dtype()));
-                }
-            }
-#endif
+            if (perform_MPSOp<MPSOp::Add>(other, result))
+                return result;
             for (std::size_t i = 0; i < rows_; ++i)
                 for (std::size_t j = 0; j < cols_; ++j)
                     result(i, j) = (*this)(i, j) + other(i, j);
@@ -109,19 +128,8 @@ namespace PHML::Data {
         Matrix<T> operator-(const Matrix<T>& other) const {
             shape_check(other, "operator-");
             Matrix<T> result(rows_, cols_, Base::device_);
-#ifdef PHML_WITH_MPS
-            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
-                if constexpr (std::is_same_v<T, float>) {
-                    mps::sub_f32(this->template data_ptr<T>(),
-                                 other.template data_ptr<T>(),
-                                 result.template data_ptr<T>(),
-                                 numel());
-                    return result;
-                } else {
-                    mps::warn_fallback_once("matrix::operator-", dtype_str(Base::dtype()));
-                }
-            }
-#endif
+            if (perform_MPSOp<MPSOp::Sub>(other, result))
+                return result;
             for (std::size_t i = 0; i < rows_; ++i)
                 for (std::size_t j = 0; j < cols_; ++j)
                     result(i, j) = (*this)(i, j) - other(i, j);
@@ -137,19 +145,8 @@ namespace PHML::Data {
                     "] * [" + std::to_string(other.rows_) + "x" +
                     std::to_string(other.cols_) + "]");
             Matrix<T> result(rows_, other.cols_, Base::device_);
-#ifdef PHML_WITH_MPS
-            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
-                if constexpr (std::is_same_v<T, float>) {
-                    mps::matmul_f32(this->template data_ptr<T>(),
-                                    other.template data_ptr<T>(),
-                                    result.template data_ptr<T>(),
-                                    rows_, cols_, other.cols_);
-                    return result;
-                } else {
-                    mps::warn_fallback_once("matrix::operator*", dtype_str(Base::dtype()));
-                }
-            }
-#endif
+            if (perform_MPSOp<MPSOp::Mul>(other, result))
+                return result;
             for (std::size_t i = 0; i < rows_; ++i)
                 for (std::size_t k = 0; k < cols_; ++k)
                     for (std::size_t j = 0; j < other.cols_; ++j)
