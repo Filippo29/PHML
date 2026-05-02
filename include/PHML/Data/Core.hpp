@@ -19,6 +19,7 @@ namespace PHML::Data {  // ml framework
 enum class DeviceType : uint8_t {
     CPU = 0,
     CUDA = 1,
+    MPS = 2,
     // METAL, VULKAN, ...
 };
 
@@ -29,9 +30,11 @@ struct Device {
     // Factory helpers
     static Device cpu()          { return {DeviceType::CPU,  0}; }
     static Device cuda(int idx=0){ return {DeviceType::CUDA, idx}; }
+    static Device mps(int idx=0) { return {DeviceType::MPS, idx}; }
 
     bool is_cpu()  const { return type == DeviceType::CPU;  }
     bool is_cuda() const { return type == DeviceType::CUDA; }
+    bool is_mps() const { return type == DeviceType::MPS; }
 
     bool operator==(const Device& o) const {
         return type == o.type && index == o.index;
@@ -39,7 +42,9 @@ struct Device {
 
     std::string str() const {
         if (is_cpu()) return "cpu";
-        return "cuda:" + std::to_string(index);
+        if (is_cuda()) return "cuda:" + std::to_string(index);
+        if (is_mps())  return "mps:" + std::to_string(index);
+        return "unknown";
     }
 };
 
@@ -111,6 +116,11 @@ struct CPUAllocator final : Allocator {
 
 // --- Allocator registry: one allocator per device -----------
 
+#ifdef PHML_WITH_MPS
+class AllocatorRegistry;
+void register_mps_allocator(AllocatorRegistry&);
+#endif
+
 class AllocatorRegistry {
 public:
     static AllocatorRegistry& instance() {
@@ -131,9 +141,11 @@ public:
 
 private:
     AllocatorRegistry() {
-        // Register the default CPU allocator at startup
         register_allocator(Device::cpu(),
                            std::make_shared<CPUAllocator>());
+#ifdef PHML_WITH_MPS
+        register_mps_allocator(*this);
+#endif
     }
 
     static std::string key(Device d) { return d.str(); }
@@ -215,6 +227,7 @@ public:
 
     bool is_cpu()     const { return device_.is_cpu();  }
     bool is_cuda()    const { return device_.is_cuda(); }
+    bool is_mps()     const { return device_.is_mps();  }
 
     // ---- CRTP self() helper ----------------------------------
     //      Lets Core call Derived methods without virtuals.

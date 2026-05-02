@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Core.hpp"
+#ifdef PHML_WITH_MPS
+#include "PHML/Data/Backend/MPSOps.hpp"
+#endif
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
@@ -116,6 +119,19 @@ namespace PHML::Data {
         Tensor<T> operator+(const Tensor<T>& other) const {
             shape_check(other, "operator+");
             Tensor<T> result(shape_, Base::device_);
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::add_f32(this->template data_ptr<T>(),
+                                 other.template data_ptr<T>(),
+                                 result.template data_ptr<T>(),
+                                 numel_);
+                    return result;
+                } else {
+                    mps::warn_fallback_once("tensor::operator+", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             binary_op(other, result, [](T a, T b){ return a + b; });
             return result;
         }
@@ -123,6 +139,19 @@ namespace PHML::Data {
         Tensor<T> operator-(const Tensor<T>& other) const {
             shape_check(other, "operator-");
             Tensor<T> result(shape_, Base::device_);
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::sub_f32(this->template data_ptr<T>(),
+                                 other.template data_ptr<T>(),
+                                 result.template data_ptr<T>(),
+                                 numel_);
+                    return result;
+                } else {
+                    mps::warn_fallback_once("tensor::operator-", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             binary_op(other, result, [](T a, T b){ return a - b; });
             return result;
         }
@@ -131,6 +160,19 @@ namespace PHML::Data {
         Tensor<T> operator*(const Tensor<T>& other) const {
             shape_check(other, "operator*");
             Tensor<T> result(shape_, Base::device_);
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::mul_f32(this->template data_ptr<T>(),
+                                 other.template data_ptr<T>(),
+                                 result.template data_ptr<T>(),
+                                 numel_);
+                    return result;
+                } else {
+                    mps::warn_fallback_once("tensor::operator*(hadamard)", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             binary_op(other, result, [](T a, T b){ return a * b; });
             return result;
         }
@@ -138,6 +180,17 @@ namespace PHML::Data {
         Tensor<T> operator*(T scalar) const {
             Tensor<T> result(shape_, Base::device_);
             T* dst = result.template data_ptr<T>();
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::scale_f32(this->template data_ptr<T>(),
+                                   scalar, dst, numel_);
+                    return result;
+                } else {
+                    mps::warn_fallback_once("tensor::operator*(scalar)", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             if (is_contiguous()) {
                 const T* src = this->template data_ptr<T>();
                 for (std::size_t i = 0; i < numel_; ++i)
@@ -228,9 +281,8 @@ namespace PHML::Data {
         // Device transfer
         Tensor<T> to(Device target) const {
             if (Base::device_ == target) return *this;
-            if (!target.is_cpu())
-                throw std::runtime_error("CUDA transfer not yet implemented");
-            return deep_copy(target);
+            if (target.is_cpu() || target.is_mps()) return deep_copy(target);
+            throw std::runtime_error("to(" + target.str() + ") not supported");
         }
 
         // Iterators — valid element order only when is_contiguous().

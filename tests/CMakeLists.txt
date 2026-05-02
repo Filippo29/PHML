@@ -7,6 +7,7 @@ endfunction()
 set(PHML_TEST_SOURCES
     unit/Data/test_Matrix.cpp
     unit/Data/test_Tensor.cpp
+    unit/Data/test_MPS.cpp
 )
 
 foreach(test_source IN LISTS PHML_TEST_SOURCES)

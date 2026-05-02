@@ -7,6 +7,13 @@ include(GNUInstallDirs)
 option(PHML_BUILD_TESTS "Build test targets" ON)
 option(PHML_BUILD_EXAMPLES "Build example targets" ON)
 
+if(APPLE AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    set(PHML_WITH_MPS_DEFAULT ON)
+else()
+    set(PHML_WITH_MPS_DEFAULT OFF)
+endif()
+option(PHML_WITH_MPS "Build with Apple MPS backend (Metal Performance Shaders)" ${PHML_WITH_MPS_DEFAULT})
+
 add_library(PHML)
 add_library(PHML::PHML ALIAS PHML)
 
@@ -22,6 +29,27 @@ target_include_directories(PHML
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+if(PHML_WITH_MPS)
+    if(NOT APPLE)
+        message(FATAL_ERROR "PHML_WITH_MPS requires an Apple platform")
+    endif()
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/metal-cpp/Metal/Metal.hpp")
+        message(FATAL_ERROR
+            "PHML_WITH_MPS is ON but metal-cpp headers were not found at "
+            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/metal-cpp. "
+            "Download metal-cpp from https://developer.apple.com/metal/cpp/ "
+            "and extract it there, or configure with -DPHML_WITH_MPS=OFF.")
+    endif()
+    target_compile_definitions(PHML PUBLIC PHML_WITH_MPS)
+    target_include_directories(PHML PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/metal-cpp)
+    target_link_libraries(PHML PUBLIC
+        "-framework Foundation"
+        "-framework Metal"
+        "-framework MetalPerformanceShaders"
+        "-framework QuartzCore"
+    )
+endif()
 
 add_subdirectory(src)
 

@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Core.hpp"
+#ifdef PHML_WITH_MPS
+#include "PHML/Data/Backend/MPSOps.hpp"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -65,7 +68,8 @@ namespace PHML::Data {
         std::size_t numel()      const { return rows_ * cols_; }
         std::size_t row_stride() const { return row_stride_;  }
         std::size_t col_stride() const { return col_stride_;  }
-        bool        is_square()  const { return rows_ == cols_; }
+        bool        is_square()       const { return rows_ == cols_; }
+        bool        is_contiguous()   const { return col_stride_ == 1 && row_stride_ == cols_; }
 
         // Element access
         T& operator()(std::size_t r, std::size_t c) {
@@ -83,6 +87,19 @@ namespace PHML::Data {
         Matrix<T> operator+(const Matrix<T>& other) const {
             shape_check(other, "operator+");
             Matrix<T> result(rows_, cols_, Base::device_);
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::add_f32(this->template data_ptr<T>(),
+                                 other.template data_ptr<T>(),
+                                 result.template data_ptr<T>(),
+                                 numel());
+                    return result;
+                } else {
+                    mps::warn_fallback_once("matrix::operator+", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             for (std::size_t i = 0; i < rows_; ++i)
                 for (std::size_t j = 0; j < cols_; ++j)
                     result(i, j) = (*this)(i, j) + other(i, j);
@@ -92,6 +109,19 @@ namespace PHML::Data {
         Matrix<T> operator-(const Matrix<T>& other) const {
             shape_check(other, "operator-");
             Matrix<T> result(rows_, cols_, Base::device_);
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::sub_f32(this->template data_ptr<T>(),
+                                 other.template data_ptr<T>(),
+                                 result.template data_ptr<T>(),
+                                 numel());
+                    return result;
+                } else {
+                    mps::warn_fallback_once("matrix::operator-", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             for (std::size_t i = 0; i < rows_; ++i)
                 for (std::size_t j = 0; j < cols_; ++j)
                     result(i, j) = (*this)(i, j) - other(i, j);
@@ -107,6 +137,19 @@ namespace PHML::Data {
                     "] * [" + std::to_string(other.rows_) + "x" +
                     std::to_string(other.cols_) + "]");
             Matrix<T> result(rows_, other.cols_, Base::device_);
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous() && other.is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::matmul_f32(this->template data_ptr<T>(),
+                                    other.template data_ptr<T>(),
+                                    result.template data_ptr<T>(),
+                                    rows_, cols_, other.cols_);
+                    return result;
+                } else {
+                    mps::warn_fallback_once("matrix::operator*", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             for (std::size_t i = 0; i < rows_; ++i)
                 for (std::size_t k = 0; k < cols_; ++k)
                     for (std::size_t j = 0; j < other.cols_; ++j)
@@ -116,6 +159,19 @@ namespace PHML::Data {
 
         Matrix<T> operator*(T scalar) const {
             Matrix<T> result(rows_, cols_, Base::device_);
+#ifdef PHML_WITH_MPS
+            if (Base::is_mps() && is_contiguous()) {
+                if constexpr (std::is_same_v<T, float>) {
+                    mps::scale_f32(this->template data_ptr<T>(),
+                                   scalar,
+                                   result.template data_ptr<T>(),
+                                   numel());
+                    return result;
+                } else {
+                    mps::warn_fallback_once("matrix::operator*(scalar)", dtype_str(Base::dtype()));
+                }
+            }
+#endif
             for (std::size_t i = 0; i < rows_; ++i)
                 for (std::size_t j = 0; j < cols_; ++j)
                     result(i, j) = (*this)(i, j) * scalar;
@@ -244,9 +300,8 @@ namespace PHML::Data {
         // Device transfer
         Matrix<T> to(Device target) const {
             if (Base::device_ == target) return *this;
-            if (!target.is_cpu())
-                throw std::runtime_error("CUDA transfer not yet implemented");
-            return deep_copy(target);
+            if (target.is_cpu() || target.is_mps()) return deep_copy(target);
+            throw std::runtime_error("to(" + target.str() + ") not supported");
         }
 
         // Iterators (range-for + std algorithms)
